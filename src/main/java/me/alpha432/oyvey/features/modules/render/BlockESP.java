@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.rendering.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
@@ -51,18 +52,20 @@ public class BlockESP extends Module {
     public final Setting<Integer> tracerAlpha = register(
             new Setting<>("TracerAlpha", 180, 0, 255, "Tracer line transparency"));
 
-    // ── State ──────────────────────────────────────────────────────────────────
+    // ── Internal state ─────────────────────────────────────────────────────────
     private final List<Block>    targetBlocks = new ArrayList<>();
     private final List<BlockPos> found        = new ArrayList<>();
 
     public BlockESP() {
-        super("BlockESP", "Highlight saved blocks through walls", Category.RENDER);
+        super("BlockESP", "Highlight saved blocks through walls. Press G to edit block list.", Category.RENDER);
     }
 
-    // ── Open custom config screen when right-clicked in ClickGUI ──────────────
+    // ── Press G to open block list editor ─────────────────────────────────────
     @Override
-    public void onConfigScreen() {
-        Minecraft.getInstance().setScreen(new BlockESPScreen(this));
+    public void onKey(int key) {
+        if (isEnabled() && key == GLFW.GLFW_KEY_G) {
+            Minecraft.getInstance().setScreen(new BlockESPScreen(this));
+        }
     }
 
     // ── Tick: scan world for target blocks ─────────────────────────────────────
@@ -113,22 +116,25 @@ public class BlockESP extends Module {
             ps.pushPose();
             ps.translate(x, y, z);
 
+            // Filled box
             if (fill.getValue()) {
                 buf.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
                 drawFilledBox(buf, ps, 0, 0, 0, 1, 1, 1, col, fillAlpha.getValue());
                 tess.end();
             }
 
+            // Outline box
             if (outline.getValue()) {
                 buf.begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
                 drawOutlineBox(buf, ps, 0, 0, 0, 1, 1, 1, col, 255);
                 tess.end();
             }
 
+            // Tracer line
             if (tracers.getValue()) {
-                double cx = mc.player.getX() - cam.x - x;
+                double cx = mc.player.getX()    - cam.x - x;
                 double cy = mc.player.getEyeY() - cam.y - y;
-                double cz = mc.player.getZ() - cam.z - z;
+                double cz = mc.player.getZ()    - cam.z - z;
 
                 buf.begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
                 buf.vertex(ps.last().pose(), (float) cx, (float) cy, (float) cz)
@@ -147,18 +153,15 @@ public class BlockESP extends Module {
         RenderSystem.disableBlend();
     }
 
-    // ── Public API for BlockESPScreen ──────────────────────────────────────────
-    public boolean addBlock(Block block) {
-        if (targetBlocks.contains(block)) return false;
-        targetBlocks.add(block);
-        return true;
-    }
-
+    // ── Public API used by BlockESPScreen ──────────────────────────────────────
     public boolean addBlock(String id) {
         if (!id.contains(":")) id = "minecraft:" + id;
         ResourceLocation rl = ResourceLocation.tryParse(id);
         if (rl == null || !BuiltInRegistries.BLOCK.containsKey(rl)) return false;
-        return addBlock(BuiltInRegistries.BLOCK.get(rl));
+        Block block = BuiltInRegistries.BLOCK.get(rl);
+        if (targetBlocks.contains(block)) return false;
+        targetBlocks.add(block);
+        return true;
     }
 
     public boolean removeBlock(Block block) {
@@ -169,7 +172,7 @@ public class BlockESP extends Module {
         return targetBlocks;
     }
 
-    // ── Box drawing helpers ────────────────────────────────────────────────────
+    // ── Filled box helper ──────────────────────────────────────────────────────
     private void drawFilledBox(BufferBuilder buf, PoseStack ps,
                                double x1, double y1, double z1,
                                double x2, double y2, double z2,
@@ -177,21 +180,34 @@ public class BlockESP extends Module {
         int r = c.getRed(), g = c.getGreen(), b = c.getBlue();
         var m = ps.last().pose();
         float[][] faces = {
-            {(float)x1,(float)y1,(float)z1, (float)x2,(float)y1,(float)z1, (float)x2,(float)y1,(float)z2, (float)x1,(float)y1,(float)z2},
-            {(float)x1,(float)y2,(float)z1, (float)x2,(float)y2,(float)z1, (float)x2,(float)y2,(float)z2, (float)x1,(float)y2,(float)z2},
-            {(float)x1,(float)y1,(float)z1, (float)x2,(float)y1,(float)z1, (float)x2,(float)y2,(float)z1, (float)x1,(float)y2,(float)z1},
-            {(float)x1,(float)y1,(float)z2, (float)x2,(float)y1,(float)z2, (float)x2,(float)y2,(float)z2, (float)x1,(float)y2,(float)z2},
-            {(float)x1,(float)y1,(float)z1, (float)x1,(float)y1,(float)z2, (float)x1,(float)y2,(float)z2, (float)x1,(float)y2,(float)z1},
-            {(float)x2,(float)y1,(float)z1, (float)x2,(float)y1,(float)z2, (float)x2,(float)y2,(float)z2, (float)x2,(float)y2,(float)z1},
+            // bottom
+            {(float)x1,(float)y1,(float)z1, (float)x2,(float)y1,(float)z1,
+             (float)x2,(float)y1,(float)z2, (float)x1,(float)y1,(float)z2},
+            // top
+            {(float)x1,(float)y2,(float)z1, (float)x2,(float)y2,(float)z1,
+             (float)x2,(float)y2,(float)z2, (float)x1,(float)y2,(float)z2},
+            // front
+            {(float)x1,(float)y1,(float)z1, (float)x2,(float)y1,(float)z1,
+             (float)x2,(float)y2,(float)z1, (float)x1,(float)y2,(float)z1},
+            // back
+            {(float)x1,(float)y1,(float)z2, (float)x2,(float)y1,(float)z2,
+             (float)x2,(float)y2,(float)z2, (float)x1,(float)y2,(float)z2},
+            // left
+            {(float)x1,(float)y1,(float)z1, (float)x1,(float)y1,(float)z2,
+             (float)x1,(float)y2,(float)z2, (float)x1,(float)y2,(float)z1},
+            // right
+            {(float)x2,(float)y1,(float)z1, (float)x2,(float)y1,(float)z2,
+             (float)x2,(float)y2,(float)z2, (float)x2,(float)y2,(float)z1},
         };
         for (float[] f : faces) {
-            buf.vertex(m,f[0],f[1],f[2]).color(r,g,b,alpha).endVertex();
-            buf.vertex(m,f[3],f[4],f[5]).color(r,g,b,alpha).endVertex();
-            buf.vertex(m,f[6],f[7],f[8]).color(r,g,b,alpha).endVertex();
-            buf.vertex(m,f[9],f[10],f[11]).color(r,g,b,alpha).endVertex();
+            buf.vertex(m, f[0],  f[1],  f[2] ).color(r,g,b,alpha).endVertex();
+            buf.vertex(m, f[3],  f[4],  f[5] ).color(r,g,b,alpha).endVertex();
+            buf.vertex(m, f[6],  f[7],  f[8] ).color(r,g,b,alpha).endVertex();
+            buf.vertex(m, f[9],  f[10], f[11]).color(r,g,b,alpha).endVertex();
         }
     }
 
+    // ── Outline box helper ─────────────────────────────────────────────────────
     private void drawOutlineBox(BufferBuilder buf, PoseStack ps,
                                 double x1, double y1, double z1,
                                 double x2, double y2, double z2,
@@ -199,22 +215,25 @@ public class BlockESP extends Module {
         int r = c.getRed(), g = c.getGreen(), b = c.getBlue();
         var m = ps.last().pose();
         float[][] edges = {
-            {(float)x1,(float)y1,(float)z1,(float)x2,(float)y1,(float)z1},
-            {(float)x2,(float)y1,(float)z1,(float)x2,(float)y1,(float)z2},
-            {(float)x2,(float)y1,(float)z2,(float)x1,(float)y1,(float)z2},
-            {(float)x1,(float)y1,(float)z2,(float)x1,(float)y1,(float)z1},
-            {(float)x1,(float)y2,(float)z1,(float)x2,(float)y2,(float)z1},
-            {(float)x2,(float)y2,(float)z1,(float)x2,(float)y2,(float)z2},
-            {(float)x2,(float)y2,(float)z2,(float)x1,(float)y2,(float)z2},
-            {(float)x1,(float)y2,(float)z2,(float)x1,(float)y2,(float)z1},
-            {(float)x1,(float)y1,(float)z1,(float)x1,(float)y2,(float)z1},
-            {(float)x2,(float)y1,(float)z1,(float)x2,(float)y2,(float)z1},
-            {(float)x2,(float)y1,(float)z2,(float)x2,(float)y2,(float)z2},
-            {(float)x1,(float)y1,(float)z2,(float)x1,(float)y2,(float)z2},
+            // bottom face edges
+            {(float)x1,(float)y1,(float)z1, (float)x2,(float)y1,(float)z1},
+            {(float)x2,(float)y1,(float)z1, (float)x2,(float)y1,(float)z2},
+            {(float)x2,(float)y1,(float)z2, (float)x1,(float)y1,(float)z2},
+            {(float)x1,(float)y1,(float)z2, (float)x1,(float)y1,(float)z1},
+            // top face edges
+            {(float)x1,(float)y2,(float)z1, (float)x2,(float)y2,(float)z1},
+            {(float)x2,(float)y2,(float)z1, (float)x2,(float)y2,(float)z2},
+            {(float)x2,(float)y2,(float)z2, (float)x1,(float)y2,(float)z2},
+            {(float)x1,(float)y2,(float)z2, (float)x1,(float)y2,(float)z1},
+            // vertical edges
+            {(float)x1,(float)y1,(float)z1, (float)x1,(float)y2,(float)z1},
+            {(float)x2,(float)y1,(float)z1, (float)x2,(float)y2,(float)z1},
+            {(float)x2,(float)y1,(float)z2, (float)x2,(float)y2,(float)z2},
+            {(float)x1,(float)y1,(float)z2, (float)x1,(float)y2,(float)z2},
         };
         for (float[] e : edges) {
-            buf.vertex(m,e[0],e[1],e[2]).color(r,g,b,alpha).endVertex();
-            buf.vertex(m,e[3],e[4],e[5]).color(r,g,b,alpha).endVertex();
+            buf.vertex(m, e[0], e[1], e[2]).color(r,g,b,alpha).endVertex();
+            buf.vertex(m, e[3], e[4], e[5]).color(r,g,b,alpha).endVertex();
         }
     }
 }
