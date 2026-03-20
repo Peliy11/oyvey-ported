@@ -28,6 +28,7 @@ import me.alpha432.oyvey.util.traits.Jsonable;
 import me.alpha432.oyvey.util.traits.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import me.alpha432.oyvey.features.modules.player.AutoMineModule;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -55,6 +56,7 @@ public class ModuleManager implements Jsonable, Util {
         register(new PlayerESPModule());
         register(new NoFallModule());
         register(new KeyPearlModule());
+        register(new AutoMineModule());
 
         LOGGER.info("Registered {} modules", modules.size());
 
