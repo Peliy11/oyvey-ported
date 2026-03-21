@@ -1,234 +1,127 @@
-package me.alpha432.oyvey.features.gui;
+package me.alpha432.oyvey.features.modules.render;
 
-import me.alpha432.oyvey.features.modules.render.BlockESPModule;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
+import me.alpha432.oyvey.event.impl.render.Render3DEvent;
+import me.alpha432.oyvey.event.system.Subscribe;
+import me.alpha432.oyvey.features.modules.Module;
+import me.alpha432.oyvey.features.settings.Setting;
+import me.alpha432.oyvey.features.gui.BlockESPScreen;
+import me.alpha432.oyvey.util.render.RenderUtil;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import org.lwjgl.glfw.GLFW;
 
+import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
 
-public class BlockESPScreen extends Screen {
+public class BlockESPModule extends Module {
 
-    private final BlockESPModule module;
-    private EditBox inputBox;
-    private String  feedback      = "";
-    private int     feedbackTimer = 0;
-    private int     scrollOffset  = 0;
+    public Setting<Color>   color     = color("Color", 255, 0, 255, 180);
+    public Setting<Float>   lineWidth = num("LineWidth", 1.5f, 0.1f, 5.0f);
+    public Setting<Boolean> fill      = bool("Fill", true);
+    public Setting<Boolean> tracers   = bool("Tracers", false);
+    public Setting<Integer> radius    = num("Radius", 50, 10, 128);
 
-    private static final int W          = 270;
-    private static final int H          = 340;
-    private static final int HEADER_H   = 26;
-    private static final int PAD        = 10;
-    private static final int ROW_H      = 22;
-    private static final int VISIBLE    = 9;
-    private static final int ACCENT     = 0xFF8B2BE2;
-    private static final int BG         = 0xF2101010;
-    private static final int ROW_NORMAL = 0x33FFFFFF;
-    private static final int ROW_HOVER  = 0x558B2BE2;
-    private static final int BTN_NORMAL = 0xFF550000;
-    private static final int BTN_HOVER  = 0xFFAA0000;
+    private final List<Block>    targetBlocks = new ArrayList<>();
+    private final List<BlockPos> found        = new ArrayList<>();
 
-    public BlockESPScreen(BlockESPModule module) {
-        super(Component.literal("BlockESP"));
-        this.module = module;
+    public BlockESPModule() {
+        super("BlockESP", "Highlight saved blocks through walls. Press G to edit list.", Category.RENDER);
     }
 
     @Override
-    protected void init() {
-        int px = px(), py = py();
+    public void onTick() {
+        if (nullCheck()) return;
 
-        inputBox = new EditBox(font,
-                px + PAD,
-                py + HEADER_H + PAD,
-                W - PAD * 2 - 56, 20,
-                Component.literal("block id"));
-        inputBox.setMaxLength(128);
-        inputBox.setSuggestion("e.g. diamond_ore");
-        inputBox.setResponder(s ->
-                inputBox.setSuggestion(s.isEmpty() ? "e.g. diamond_ore" : ""));
-        addRenderableWidget(inputBox);
-
-        addRenderableWidget(Button.builder(
-                Component.literal("+ Add"), b -> tryAdd())
-                .pos(px + W - PAD - 52, py + HEADER_H + PAD)
-                .size(52, 20)
-                .build());
-
-        addRenderableWidget(Button.builder(
-                Component.literal("Clear All"), b -> {
-                    module.getTargetBlocks().clear();
-                    scrollOffset = 0;
-                    feedback("§cAll blocks cleared.");
-                })
-                .pos(px + PAD, py + H - 30)
-                .size(80, 20)
-                .build());
-
-        addRenderableWidget(Button.builder(
-                Component.literal("Done"), b -> onClose())
-                .pos(px + W - PAD - 60, py + H - 30)
-                .size(60, 20)
-                .build());
-    }
-
-    @Override
-    public void render(GuiGraphics g, int mx, int my, float delta) {
-        renderBackground(g, mx, my, delta);
-
-        int px    = px();
-        int py    = py();
-        int listY = listTop();
-
-        g.fill(px, py, px + W, py + H, BG);
-        g.fill(px, py, px + W, py + HEADER_H, ACCENT);
-        g.drawCenteredString(font, "§lBlockESP — Block List",
-                px + W / 2, py + (HEADER_H - 8) / 2, 0xFFFFFF);
-        g.drawCenteredString(font, "§8Press G in-game to reopen",
-                px + W / 2, py + HEADER_H + PAD + 24, 0x555555);
-        g.fill(px + PAD, listY - 6, px + W - PAD, listY - 5, 0x33FFFFFF);
-        g.drawString(font,
-                "§7Saved Blocks §8(" + module.getTargetBlocks().size() + ")",
-                px + PAD, listY - 16, 0xAAAAAA);
-
-        List<Block> blocks = module.getTargetBlocks();
-        int start = clampScroll(blocks.size());
-        int end   = Math.min(start + VISIBLE, blocks.size());
-
-        if (blocks.isEmpty()) {
-            g.drawCenteredString(font, "§8No blocks added yet.",
-                    px + W / 2, listY + 28, 0x555555);
-            g.drawCenteredString(font, "§7Type a name above and press Enter.",
-                    px + W / 2, listY + 42, 0x444444);
+        // Open screen when G is pressed
+        if (isEnabled() && mc.options.keyChat.isDown() == false
+                && net.minecraft.client.Minecraft.getInstance().screen == null) {
+            // handled via key event below
         }
 
-        for (int i = start; i < end; i++) {
-            Block  block = blocks.get(i);
-            String name  = BuiltInRegistries.BLOCK.getKey(block).getPath();
-            int    ry    = listY + (i - start) * ROW_H;
+        found.clear();
+        if (targetBlocks.isEmpty()) return;
 
-            boolean rowHover = mx >= px + PAD && mx <= px + W - PAD
-                            && my >= ry && my < ry + ROW_H - 2;
-            boolean xHover   = isXHovered(mx, my, px, ry);
+        BlockPos origin = mc.player.blockPosition();
+        int r = radius.getValue();
 
-            g.fill(px + PAD, ry, px + W - PAD, ry + ROW_H - 2,
-                    rowHover ? ROW_HOVER : ROW_NORMAL);
-            g.drawString(font, "§f" + name,
-                    px + PAD + 6, ry + (ROW_H - 8) / 2, 0xFFFFFF);
-
-            int bx = px + W - PAD - 19;
-            g.fill(bx, ry + 1, bx + 17, ry + ROW_H - 3,
-                    xHover ? BTN_HOVER : BTN_NORMAL);
-            g.drawCenteredString(font, "§cX",
-                    bx + 8, ry + (ROW_H - 8) / 2, 0xFF5555);
-        }
-
-        if (blocks.size() > VISIBLE) {
-            int trackH = VISIBLE * ROW_H;
-            int thumbH = Math.max(14, trackH * VISIBLE / blocks.size());
-            int maxOff = Math.max(1, blocks.size() - VISIBLE);
-            int thumbY = listY + (trackH - thumbH) * start / maxOff;
-            g.fill(px + W - 5, listY, px + W - 2, listY + trackH, 0x22FFFFFF);
-            g.fill(px + W - 5, thumbY, px + W - 2, thumbY + thumbH, ACCENT);
-        }
-
-        if (feedbackTimer > 0) {
-            feedbackTimer--;
-            int a = (int)(Math.min(1f, feedbackTimer / 20f) * 255) << 24;
-            g.drawCenteredString(font, feedback,
-                    px + W / 2, py + H - 46, a | 0x00FFFFFF);
-        }
-
-        g.fill(px,         py,         px + W,     py + 1,     ACCENT);
-        g.fill(px,         py + H - 1, px + W,     py + H,     ACCENT);
-        g.fill(px,         py,         px + 1,     py + H,     ACCENT);
-        g.fill(px + W - 1, py,         px + W,     py + H,     ACCENT);
-
-        super.render(g, mx, my, delta);
-    }
-
-    @Override
-    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        int px    = px();
-        int listY = listTop();
-        int mx    = (int) click.x();
-        int my    = (int) click.y();
-
-        List<Block> blocks = module.getTargetBlocks();
-        int start = clampScroll(blocks.size());
-        int end   = Math.min(start + VISIBLE, blocks.size());
-
-        for (int i = start; i < end; i++) {
-            int ry = listY + (i - start) * ROW_H;
-            if (isXHovered(mx, my, px, ry)) {
-                String name = BuiltInRegistries.BLOCK.getKey(blocks.get(i)).getPath();
-                module.removeBlock(blocks.get(i));
-                clampScroll(blocks.size());
-                feedback("§cRemoved: §f" + name);
-                return true;
+        for (BlockPos pos : BlockPos.betweenClosed(
+                origin.offset(-r, -r, -r),
+                origin.offset(r, r, r))) {
+            BlockState state = mc.level.getBlockState(pos);
+            if (targetBlocks.contains(state.getBlock())) {
+                found.add(pos.immutable());
             }
         }
-        return super.mouseClicked(click, doubled);
     }
 
-    @Override
-    public boolean mouseScrolled(double mx, double my, double dx, double dy) {
-        int max = Math.max(0, module.getTargetBlocks().size() - VISIBLE);
-        scrollOffset = (int) Math.max(0, Math.min(max, scrollOffset - dy));
+    @Subscribe
+    public void onRender3D(Render3DEvent event) {
+        if (nullCheck()) return;
+        if (found.isEmpty()) return;
+
+        for (BlockPos pos : found) {
+            AABB box = new AABB(pos);
+
+            if (fill.getValue()) {
+                RenderUtil.drawBoxFilled(event.getMatrix(), box,
+                        new Color(
+                                color.getValue().getRed(),
+                                color.getValue().getGreen(),
+                                color.getValue().getBlue(),
+                                40));
+            }
+
+            RenderUtil.drawBox(event.getMatrix(), box,
+                    color.getValue(), lineWidth.getValue());
+
+            if (tracers.getValue()) {
+                drawTracer(event.getMatrix(), pos);
+            }
+        }
+    }
+
+    private void drawTracer(com.mojang.blaze3d.vertex.PoseStack stack, BlockPos pos) {
+        net.minecraft.world.phys.Vec3 cam =
+                mc.getEntityRenderDispatcher().camera.position();
+
+        float x = (float)(pos.getX() + 0.5 - cam.x());
+        float y = (float)(pos.getY() + 0.5 - cam.y());
+        float z = (float)(pos.getZ() + 0.5 - cam.z());
+
+        com.mojang.blaze3d.vertex.BufferBuilder buf =
+                com.mojang.blaze3d.vertex.Tesselator.getInstance()
+                        .begin(com.mojang.blaze3d.vertex.VertexFormat.Mode.LINES,
+                                com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH);
+
+        com.mojang.blaze3d.vertex.PoseStack.Pose pose = stack.last();
+        int c = color.getValue().getRGB();
+
+        buf.addVertex(pose, 0, 0, 0).setColor(c).setLineWidth(lineWidth.getValue());
+        buf.addVertex(pose, x, y, z).setColor(c).setLineWidth(lineWidth.getValue());
+
+        me.alpha432.oyvey.util.render.Layers.lines().draw(buf.buildOrThrow());
+    }
+
+    public boolean addBlock(String id) {
+        if (!id.contains(":")) id = "minecraft:" + id;
+        ResourceLocation rl = ResourceLocation.tryParse(id);
+        if (rl == null || !BuiltInRegistries.BLOCK.containsKey(rl)) return false;
+        Block block = BuiltInRegistries.BLOCK.get(rl);
+        if (targetBlocks.contains(block)) return false;
+        targetBlocks.add(block);
         return true;
     }
 
-    @Override
-    public boolean keyPressed(KeyEvent input) {
-        int key = input.input();
-        if (key == 257 || key == 335) {
-            tryAdd();
-            return true;
-        }
-        return super.keyPressed(input);
+    public boolean removeBlock(Block block) {
+        return targetBlocks.remove(block);
     }
 
-    private void tryAdd() {
-        String raw = inputBox.getValue().trim().toLowerCase();
-        if (raw.isEmpty()) return;
-        boolean added = module.addBlock(raw);
-        if (added) {
-            feedback("§aAdded: §f" + (raw.contains(":") ? raw.split(":")[1] : raw));
-            inputBox.setValue("");
-            scrollOffset = Math.max(0, module.getTargetBlocks().size() - VISIBLE);
-        } else {
-            feedback("§eUnknown block or already in list.");
-        }
+    public List<Block> getTargetBlocks() {
+        return targetBlocks;
     }
-
-    private void feedback(String msg) {
-        this.feedback      = msg;
-        this.feedbackTimer = 80;
-    }
-
-    private int px()      { return (width  - W) / 2; }
-    private int py()      { return (height - H) / 2; }
-    private int listTop() { return py() + HEADER_H + PAD + 20 + 28; }
-
-    private int clampScroll(int size) {
-        scrollOffset = Math.max(0, Math.min(scrollOffset, Math.max(0, size - VISIBLE)));
-        return scrollOffset;
-    }
-
-    private boolean isXHovered(int mx, int my, int px, int ry) {
-        int bx = px + W - PAD - 19;
-        return mx >= bx && mx <= bx + 17
-            && my >= ry + 1 && my < ry + ROW_H - 3;
-    }
-
-    @Override
-    public boolean isPauseScreen() { return false; }
-
-    @Override
-    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {}
 }
