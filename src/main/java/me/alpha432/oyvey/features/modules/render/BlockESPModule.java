@@ -101,15 +101,18 @@ public class BlockESPModule extends Module {
 public boolean addBlock(String id) {
     if (!id.contains(":")) id = "minecraft:" + id;
     try {
-        net.minecraft.resources.ResourceKey<Block> key = net.minecraft.resources.ResourceKey.create(
-                net.minecraft.core.registries.Registries.BLOCK,
-                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
-                        id.split(":")[0], id.split(":")[1]));
-        Block block = BuiltInRegistries.BLOCK.get(key).orElse(null);
-        if (block == null) return false;
-        if (targetBlocks.contains(block)) return false;
-        targetBlocks.add(block);
-        return true;
+        String[] parts = id.split(":");
+        String namespace = parts[0];
+        String path = parts[1];
+        for (Block block : BuiltInRegistries.BLOCK) {
+            String blockId = BuiltInRegistries.BLOCK.getKey(block).toString();
+            if (blockId.equals(namespace + ":" + path)) {
+                if (targetBlocks.contains(block)) return false;
+                targetBlocks.add(block);
+                return true;
+            }
+        }
+        return false;
     } catch (Exception e) {
         return false;
     }
