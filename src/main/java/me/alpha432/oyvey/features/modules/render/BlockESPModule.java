@@ -8,11 +8,9 @@ import me.alpha432.oyvey.features.gui.BlockESPScreen;
 import me.alpha432.oyvey.util.render.RenderUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import org.lwjgl.glfw.GLFW;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -36,13 +34,6 @@ public class BlockESPModule extends Module {
     @Override
     public void onTick() {
         if (nullCheck()) return;
-
-        // Open screen when G is pressed
-        if (isEnabled() && mc.options.keyChat.isDown() == false
-                && net.minecraft.client.Minecraft.getInstance().screen == null) {
-            // handled via key event below
-        }
-
         found.clear();
         if (targetBlocks.isEmpty()) return;
 
@@ -107,19 +98,20 @@ public class BlockESPModule extends Module {
         me.alpha432.oyvey.util.render.Layers.lines().draw(buf.buildOrThrow());
     }
 
-public boolean addBlock(String id) {
-    if (!id.contains(":")) id = "minecraft:" + id;
-    try {
-        ResourceLocation rl = ResourceLocation.parse(id);
-        if (!BuiltInRegistries.BLOCK.containsKey(rl)) return false;
-        Block block = BuiltInRegistries.BLOCK.get(rl);
-        if (targetBlocks.contains(block)) return false;
-        targetBlocks.add(block);
-        return true;
-    } catch (Exception e) {
-        return false;
+    public boolean addBlock(String id) {
+        if (!id.contains(":")) id = "minecraft:" + id;
+        try {
+            net.minecraft.resources.ResourceLocation rl =
+                    net.minecraft.resources.ResourceLocation.parse(id);
+            if (!BuiltInRegistries.BLOCK.containsKey(rl)) return false;
+            Block block = BuiltInRegistries.BLOCK.get(rl);
+            if (targetBlocks.contains(block)) return false;
+            targetBlocks.add(block);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
-}
 
     public boolean removeBlock(Block block) {
         return targetBlocks.remove(block);
