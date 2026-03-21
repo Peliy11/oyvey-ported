@@ -1,16 +1,14 @@
 {
   "schemaVersion": 1,
-  "id": "oyvey",
+  "id": "tonclient",
   "version": "${version}",
-  "name": "oyvey-ported",
-  "description": "free and opensource client base",
+  "name": "Ton Client",
+  "description": "Donut Smp Based Client",
   "authors": [
-    "3arthqu4ke",
-    "alpha432",
-    "cattyn"
+    "Peliy11"
   ],
   "contact": {
-    "repo": "https://github.com/mioclient/oyvey-ported"
+    "repo": "https://discord.gg/kovari"
   },
   "license": "MIT",
   "environment": "client",
