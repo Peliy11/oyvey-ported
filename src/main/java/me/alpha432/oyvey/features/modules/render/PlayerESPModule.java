@@ -9,7 +9,6 @@ import me.alpha432.oyvey.features.settings.Setting;
 import me.alpha432.oyvey.util.render.Layers;
 import me.alpha432.oyvey.util.render.RenderUtil;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -31,7 +30,6 @@ public class PlayerESPModule extends Module {
     public Setting<Boolean> showArmor  = bool("Armor", true);
     public Setting<Boolean> showDist   = bool("Distance", false);
 
-    private Matrix4f projMat = new Matrix4f();
     private Matrix4f viewMat = new Matrix4f();
 
     public PlayerESPModule() {
@@ -48,7 +46,7 @@ public class PlayerESPModule extends Module {
     public void onRender3D(Render3DEvent event) {
         if (nullCheck()) return;
 
-viewMat = new Matrix4f(event.getMatrix().last().pose());
+        viewMat = new Matrix4f(event.getMatrix().last().pose());
 
         for (AbstractClientPlayer player : getPlayers()) {
             AABB box = player.getBoundingBox();
