@@ -11,7 +11,7 @@ import org.apache.logging.log4j.Logger;
 public class OyVey implements ModInitializer, ClientModInitializer {
     public static float TIMER = 1f;
 
-    public static final Logger LOGGER = LogManager.getLogger("OyVey");
+    public static final Logger LOGGER = LogManager.getLogger("TonClient");
     public static ServerManager serverManager;
     public static ColorManager colorManager;
     public static RotationManager rotationManager;
