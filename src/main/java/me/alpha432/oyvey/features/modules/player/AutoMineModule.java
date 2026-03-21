@@ -22,19 +22,20 @@ public class AutoMineModule extends Module {
     public Setting<Boolean> autoWalk = bool("AutoWalk", true);
 
     public enum MineMode { FLAT, TUNNEL_1x2, TUNNEL_2x2, STAIRCASE }
-    public Setting<MineMode> mode = enumSetting("Mode", MineMode.TUNNEL_1x2);
+    public Setting<MineMode> mode = new Setting<>("Mode", MineMode.TUNNEL_1x2);
 
     private int savedSlot  = -1;
     private int delayTimer = 0;
 
     public AutoMineModule() {
         super("AutoMine", "Automatically mines forward in the chosen pattern.", Category.PLAYER);
+        register(mode);
     }
 
     @Override
     public void onDisable() {
         if (savedSlot != -1) {
-            mc.player.getInventory().selected = savedSlot;
+            mc.player.getInventory().setSelectedHotbarSlot(savedSlot);
             savedSlot = -1;
         }
         mc.options.keyUp.setDown(false);
@@ -68,9 +69,9 @@ public class AutoMineModule extends Module {
 
     private List<BlockPos> getTargets() {
         List<BlockPos> list = new ArrayList<>();
-        BlockPos    feet    = mc.player.blockPosition();
-        Direction   facing  = mc.player.getDirection();
-        Direction   left    = facing.getCounterClockWise();
+        BlockPos  feet   = mc.player.blockPosition();
+        Direction facing = mc.player.getDirection();
+        Direction left   = facing.getCounterClockWise();
 
         switch (mode.getValue()) {
             case FLAT -> list.add(feet.relative(facing));
@@ -109,9 +110,9 @@ public class AutoMineModule extends Module {
             int s = pickScore(mc.player.getInventory().getItem(i));
             if (s > score) { score = s; best = i; }
         }
-        if (best != -1 && best != mc.player.getInventory().selected) {
-            if (savedSlot == -1) savedSlot = mc.player.getInventory().selected;
-            mc.player.getInventory().selected = best;
+        if (best != -1 && best != mc.player.getInventory().getSelectedHotbarSlot()) {
+            if (savedSlot == -1) savedSlot = mc.player.getInventory().getSelectedHotbarSlot();
+            mc.player.getInventory().setSelectedHotbarSlot(best);
         }
     }
 
