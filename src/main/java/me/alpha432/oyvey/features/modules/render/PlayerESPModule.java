@@ -48,7 +48,9 @@ public class PlayerESPModule extends Module {
     public void onRender3D(Render3DEvent event) {
         if (nullCheck()) return;
 
-        projMat = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix());
+       projMat = new Matrix4f(mc.gameRenderer.getMainCamera().getPartialTickTime() >= 0
+        ? net.minecraft.client.renderer.GameRenderer.getProjectionMatrix(mc.gameRenderer.getFov(mc.gameRenderer.getMainCamera(), mc.getFrameTime(), true))
+        : new Matrix4f());
         viewMat = new Matrix4f(event.getMatrix().last().pose());
 
         for (AbstractClientPlayer player : getPlayers()) {
