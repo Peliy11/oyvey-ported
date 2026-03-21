@@ -74,4 +74,4 @@ public class BlockESPModule extends Module {
                         40));
             }
 
-            RenderUtil.
+            RenderUtil.drawBox(event.getMatrix(), box, color.getValue(), lineWidth.getValue());
