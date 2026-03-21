@@ -108,15 +108,19 @@ public class BlockESPModule extends Module {
         me.alpha432.oyvey.util.render.Layers.lines().draw(buf.buildOrThrow());
     }
 
-    public boolean addBlock(String id) {
-        if (!id.contains(":")) id = "minecraft:" + id;
-        ResourceLocation rl = ResourceLocation.tryParse(id);
-        if (rl == null || !BuiltInRegistries.BLOCK.containsKey(rl)) return false;
+public boolean addBlock(String id) {
+    if (!id.contains(":")) id = "minecraft:" + id;
+    try {
+        ResourceLocation rl = ResourceLocation.parse(id);
+        if (!BuiltInRegistries.BLOCK.containsKey(rl)) return false;
         Block block = BuiltInRegistries.BLOCK.get(rl);
         if (targetBlocks.contains(block)) return false;
         targetBlocks.add(block);
         return true;
+    } catch (Exception e) {
+        return false;
     }
+}
 
     public boolean removeBlock(Block block) {
         return targetBlocks.remove(block);
