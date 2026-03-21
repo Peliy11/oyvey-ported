@@ -75,3 +75,22 @@ public class BlockESPModule extends Module {
             }
 
             RenderUtil.drawBox(event.getMatrix(), box, color.getValue(), lineWidth.getValue());
+
+            public boolean addBlock(String id) {
+        if (!id.contains(":")) id = "minecraft:" + id;
+        ResourceLocation rl = ResourceLocation.tryParse(id);
+        if (rl == null || !BuiltInRegistries.BLOCK.containsKey(rl)) return false;
+        Block block = BuiltInRegistries.BLOCK.get(rl);
+        if (targetBlocks.contains(block)) return false;
+        targetBlocks.add(block);
+        return true;
+    }
+
+    public boolean removeBlock(Block block) {
+        return targetBlocks.remove(block);
+    }
+
+    public List<Block> getTargetBlocks() {
+        return targetBlocks;
+    }
+}
