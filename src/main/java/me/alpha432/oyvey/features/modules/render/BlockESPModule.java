@@ -98,20 +98,22 @@ public class BlockESPModule extends Module {
         me.alpha432.oyvey.util.render.Layers.lines().draw(buf.buildOrThrow());
     }
 
-    public boolean addBlock(String id) {
-        if (!id.contains(":")) id = "minecraft:" + id;
-        try {
-            net.minecraft.resources.ResourceLocation rl =
-                    net.minecraft.resources.ResourceLocation.parse(id);
-            if (!BuiltInRegistries.BLOCK.containsKey(rl)) return false;
-            Block block = BuiltInRegistries.BLOCK.get(rl);
-            if (targetBlocks.contains(block)) return false;
-            targetBlocks.add(block);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+public boolean addBlock(String id) {
+    if (!id.contains(":")) id = "minecraft:" + id;
+    try {
+        net.minecraft.resources.ResourceKey<Block> key = net.minecraft.resources.ResourceKey.create(
+                net.minecraft.core.registries.Registries.BLOCK,
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
+                        id.split(":")[0], id.split(":")[1]));
+        Block block = BuiltInRegistries.BLOCK.get(key).orElse(null);
+        if (block == null) return false;
+        if (targetBlocks.contains(block)) return false;
+        targetBlocks.add(block);
+        return true;
+    } catch (Exception e) {
+        return false;
     }
+}
 
     public boolean removeBlock(Block block) {
         return targetBlocks.remove(block);
