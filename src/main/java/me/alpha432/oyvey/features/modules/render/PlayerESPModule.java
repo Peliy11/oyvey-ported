@@ -9,8 +9,9 @@ import me.alpha432.oyvey.features.settings.Setting;
 import me.alpha432.oyvey.util.render.Layers;
 import me.alpha432.oyvey.util.render.RenderUtil;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -37,7 +38,7 @@ public class PlayerESPModule extends Module {
         super("PlayerESP", "Shows players through walls with health and armor.", Category.RENDER);
     }
 
-    private List<Player> getPlayers() {
+    private List<AbstractClientPlayer> getPlayers() {
         return mc.level.players().stream()
                 .filter(p -> p != mc.player && p.isAlive())
                 .toList();
@@ -47,10 +48,10 @@ public class PlayerESPModule extends Module {
     public void onRender3D(Render3DEvent event) {
         if (nullCheck()) return;
 
-        projMat = new Matrix4f(net.minecraft.client.renderer.RenderSystem.getProjectionMatrix());
+        projMat = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix());
         viewMat = new Matrix4f(event.getMatrix().last().pose());
 
-        for (Player player : getPlayers()) {
+        for (AbstractClientPlayer player : getPlayers()) {
             AABB box = player.getBoundingBox();
 
             if (boxes.getValue()) {
@@ -86,9 +87,9 @@ public class PlayerESPModule extends Module {
     @Subscribe
     public void onRender2D(Render2DEvent event) {
         if (nullCheck()) return;
-        GuiGraphics g = event.getGuiGraphics();
+        GuiGraphics g = event.getContext();
 
-        for (Player player : getPlayers()) {
+        for (AbstractClientPlayer player : getPlayers()) {
             Vec3 worldPos = new Vec3(
                     player.getX(),
                     player.getBoundingBox().maxY + 0.3,
@@ -100,7 +101,6 @@ public class PlayerESPModule extends Module {
             int sx = (int) screen[0];
             int sy = (int) screen[1];
 
-            // Build health string
             String healthStr = "";
             if (showHealth.getValue()) {
                 float hp  = player.getHealth();
@@ -111,24 +111,18 @@ public class PlayerESPModule extends Module {
                 healthStr = col + String.format("%.1f", hp) + " §f";
             }
 
-            // Build distance string
             String distStr = showDist.getValue()
                     ? " §7" + (int) mc.player.distanceTo(player) + "m"
                     : "";
 
-            // Full name tag line
             String line  = healthStr + player.getName().getString() + distStr;
-            int    textW = font.width(line);
+            int    textW = mc.font.width(line);
 
-            // Background box
             g.fill(sx - textW / 2 - 3, sy - 11,
                    sx + textW / 2 + 3, sy + 1,
                    0x88000000);
+            g.drawString(mc.font, line, sx - textW / 2, sy - 9, 0xFFFFFF);
 
-            // Name tag text
-            g.drawString(font, line, sx - textW / 2, sy - 9, 0xFFFFFF);
-
-            // Armor icons
             if (showArmor.getValue()) {
                 EquipmentSlot[] slots = {
                     EquipmentSlot.HEAD,
