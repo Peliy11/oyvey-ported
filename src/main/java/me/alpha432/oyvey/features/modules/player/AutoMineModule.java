@@ -35,7 +35,7 @@ public class AutoMineModule extends Module {
     @Override
     public void onDisable() {
         if (savedSlot != -1) {
-            mc.player.getInventory().setSelectedHotbarSlot(savedSlot);
+            mc.player.getInventory().selected = savedSlot;
             savedSlot = -1;
         }
         mc.options.keyUp.setDown(false);
@@ -110,9 +110,9 @@ public class AutoMineModule extends Module {
             int s = pickScore(mc.player.getInventory().getItem(i));
             if (s > score) { score = s; best = i; }
         }
-        if (best != -1 && best != mc.player.getInventory().getSelectedHotbarSlot()) {
-            if (savedSlot == -1) savedSlot = mc.player.getInventory().getSelectedHotbarSlot();
-            mc.player.getInventory().setSelectedHotbarSlot(best);
+        if (best != -1 && best != mc.player.getInventory().selected) {
+            if (savedSlot == -1) savedSlot = mc.player.getInventory().selected;
+            mc.player.getInventory().selected = best;
         }
     }
 
