@@ -5,6 +5,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.Block;
@@ -83,27 +85,17 @@ public class BlockESPScreen extends Screen {
         int py    = py();
         int listY = listTop();
 
-        // Panel background
         g.fill(px, py, px + W, py + H, BG);
-
-        // Header
         g.fill(px, py, px + W, py + HEADER_H, ACCENT);
         g.drawCenteredString(font, "§lBlockESP — Block List",
                 px + W / 2, py + (HEADER_H - 8) / 2, 0xFFFFFF);
-
-        // Hint text
         g.drawCenteredString(font, "§8Press G in-game to reopen",
                 px + W / 2, py + HEADER_H + PAD + 24, 0x555555);
-
-        // Separator line
         g.fill(px + PAD, listY - 6, px + W - PAD, listY - 5, 0x33FFFFFF);
-
-        // Block count label
         g.drawString(font,
                 "§7Saved Blocks §8(" + module.getTargetBlocks().size() + ")",
                 px + PAD, listY - 16, 0xAAAAAA);
 
-        // Block rows
         List<Block> blocks = module.getTargetBlocks();
         int start = clampScroll(blocks.size());
         int end   = Math.min(start + VISIBLE, blocks.size());
@@ -124,15 +116,11 @@ public class BlockESPScreen extends Screen {
                             && my >= ry && my < ry + ROW_H - 2;
             boolean xHover   = isXHovered(mx, my, px, ry);
 
-            // Row background
             g.fill(px + PAD, ry, px + W - PAD, ry + ROW_H - 2,
                     rowHover ? ROW_HOVER : ROW_NORMAL);
-
-            // Block name
             g.drawString(font, "§f" + name,
                     px + PAD + 6, ry + (ROW_H - 8) / 2, 0xFFFFFF);
 
-            // Remove button
             int bx = px + W - PAD - 19;
             g.fill(bx, ry + 1, bx + 17, ry + ROW_H - 3,
                     xHover ? BTN_HOVER : BTN_NORMAL);
@@ -140,7 +128,6 @@ public class BlockESPScreen extends Screen {
                     bx + 8, ry + (ROW_H - 8) / 2, 0xFF5555);
         }
 
-        // Scrollbar
         if (blocks.size() > VISIBLE) {
             int trackH = VISIBLE * ROW_H;
             int thumbH = Math.max(14, trackH * VISIBLE / blocks.size());
@@ -150,7 +137,6 @@ public class BlockESPScreen extends Screen {
             g.fill(px + W - 5, thumbY, px + W - 2, thumbY + thumbH, ACCENT);
         }
 
-        // Feedback toast
         if (feedbackTimer > 0) {
             feedbackTimer--;
             int a = (int)(Math.min(1f, feedbackTimer / 20f) * 255) << 24;
@@ -158,26 +144,28 @@ public class BlockESPScreen extends Screen {
                     px + W / 2, py + H - 46, a | 0x00FFFFFF);
         }
 
-        // Border
-        g.fill(px,             py,         px + W,     py + 1,     ACCENT);
-        g.fill(px,             py + H - 1, px + W,     py + H,     ACCENT);
-        g.fill(px,             py,         px + 1,     py + H,     ACCENT);
-        g.fill(px + W - 1,     py,         px + W,     py + H,     ACCENT);
+        g.fill(px,         py,         px + W,     py + 1,     ACCENT);
+        g.fill(px,         py + H - 1, px + W,     py + H,     ACCENT);
+        g.fill(px,         py,         px + 1,     py + H,     ACCENT);
+        g.fill(px + W - 1, py,         px + W,     py + H,     ACCENT);
 
         super.render(g, mx, my, delta);
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int btn) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         int px    = px();
         int listY = listTop();
+        int mx    = (int) click.x();
+        int my    = (int) click.y();
+
         List<Block> blocks = module.getTargetBlocks();
         int start = clampScroll(blocks.size());
         int end   = Math.min(start + VISIBLE, blocks.size());
 
         for (int i = start; i < end; i++) {
             int ry = listY + (i - start) * ROW_H;
-            if (isXHovered((int) mx, (int) my, px, ry)) {
+            if (isXHovered(mx, my, px, ry)) {
                 String name = BuiltInRegistries.BLOCK.getKey(blocks.get(i)).getPath();
                 module.removeBlock(blocks.get(i));
                 clampScroll(blocks.size());
@@ -185,7 +173,7 @@ public class BlockESPScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mx, my, btn);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
@@ -196,18 +184,18 @@ public class BlockESPScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int key, int scan, int mods) {
+    public boolean keyPressed(KeyEvent input) {
+        int key = input.input();
         if (key == 257 || key == 335) {
             tryAdd();
             return true;
         }
-        return super.keyPressed(key, scan, mods);
+        return super.keyPressed(input);
     }
 
     private void tryAdd() {
         String raw = inputBox.getValue().trim().toLowerCase();
         if (raw.isEmpty()) return;
-
         boolean added = module.addBlock(raw);
         if (added) {
             feedback("§aAdded: §f" + (raw.contains(":") ? raw.split(":")[1] : raw));
@@ -223,17 +211,9 @@ public class BlockESPScreen extends Screen {
         this.feedbackTimer = 80;
     }
 
-    private int px() {
-        return (width - W) / 2;
-    }
-
-    private int py() {
-        return (height - H) / 2;
-    }
-
-    private int listTop() {
-        return py() + HEADER_H + PAD + 20 + 28;
-    }
+    private int px()      { return (width  - W) / 2; }
+    private int py()      { return (height - H) / 2; }
+    private int listTop() { return py() + HEADER_H + PAD + 20 + 28; }
 
     private int clampScroll(int size) {
         scrollOffset = Math.max(0, Math.min(scrollOffset, Math.max(0, size - VISIBLE)));
@@ -247,7 +227,8 @@ public class BlockESPScreen extends Screen {
     }
 
     @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
+    public boolean isPauseScreen() { return false; }
+
+    @Override
+    public void renderBackground(GuiGraphics context, int mouseX, int mouseY, float delta) {}
 }
