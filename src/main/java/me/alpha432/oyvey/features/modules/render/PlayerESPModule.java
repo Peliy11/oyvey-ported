@@ -30,7 +30,6 @@ public class PlayerESPModule extends Module {
     public Setting<Boolean> showArmor  = bool("Armor", true);
     public Setting<Boolean> showDist   = bool("Distance", false);
 
-    // Cached matrices for 2D projection
     private Matrix4f projMat = new Matrix4f();
     private Matrix4f viewMat = new Matrix4f();
 
@@ -48,7 +47,6 @@ public class PlayerESPModule extends Module {
     public void onRender3D(Render3DEvent event) {
         if (nullCheck()) return;
 
-        // Cache matrices for 2D use
         projMat = new Matrix4f(net.minecraft.client.renderer.RenderSystem.getProjectionMatrix());
         viewMat = new Matrix4f(event.getMatrix().last().pose());
 
@@ -57,9 +55,11 @@ public class PlayerESPModule extends Module {
 
             if (boxes.getValue()) {
                 RenderUtil.drawBoxFilled(event.getMatrix(), box,
-                        new Color(color.getValue().getRed(),
-                                  color.getValue().getGreen(),
-                                  color.getValue().getBlue(), 30));
+                        new Color(
+                                color.getValue().getRed(),
+                                color.getValue().getGreen(),
+                                color.getValue().getBlue(),
+                                30));
                 RenderUtil.drawBox(event.getMatrix(), box,
                         color.getValue(), lineWidth.getValue());
             }
@@ -100,38 +100,47 @@ public class PlayerESPModule extends Module {
             int sx = (int) screen[0];
             int sy = (int) screen[1];
 
-            // Health + name
+            // Build health string
             String healthStr = "";
             if (showHealth.getValue()) {
                 float hp  = player.getHealth();
                 float max = player.getMaxHealth();
-                String col = hp / max < 0.33f ? "§c" : hp / max < 0.66f ? "§e" : "§a";
+                String col = hp / max < 0.33f ? "§c"
+                           : hp / max < 0.66f ? "§e"
+                           : "§a";
                 healthStr = col + String.format("%.1f", hp) + " §f";
             }
 
+            // Build distance string
             String distStr = showDist.getValue()
-                    ? " §7" + (int) mc.player.distanceTo(player) + "m" : "";
+                    ? " §7" + (int) mc.player.distanceTo(player) + "m"
+                    : "";
 
-            String line = healthStr + player.getName().getString() + distStr;
-            int textW = font.width(line);
+            // Full name tag line
+            String line  = healthStr + player.getName().getString() + distStr;
+            int    textW = font.width(line);
 
             // Background box
             g.fill(sx - textW / 2 - 3, sy - 11,
-                   sx + textW / 2 + 3, sy + 1, 0x88000000);
+                   sx + textW / 2 + 3, sy + 1,
+                   0x88000000);
 
-            // Name tag
+            // Name tag text
             g.drawString(font, line, sx - textW / 2, sy - 9, 0xFFFFFF);
 
             // Armor icons
             if (showArmor.getValue()) {
                 EquipmentSlot[] slots = {
-                    EquipmentSlot.HEAD, EquipmentSlot.CHEST,
-                    EquipmentSlot.LEGS, EquipmentSlot.FEET
+                    EquipmentSlot.HEAD,
+                    EquipmentSlot.CHEST,
+                    EquipmentSlot.LEGS,
+                    EquipmentSlot.FEET
                 };
 
                 int count = 0;
-                for (EquipmentSlot slot : slots)
+                for (EquipmentSlot slot : slots) {
                     if (!player.getItemBySlot(slot).isEmpty()) count++;
+                }
 
                 int iconSize = 9;
                 int startX   = sx - (count * (iconSize + 1)) / 2;
@@ -150,4 +159,25 @@ public class PlayerESPModule extends Module {
 
     private float[] worldToScreen(Vec3 world) {
         Vec3 cam = mc.getEntityRenderDispatcher().camera.position();
-        double rx = world.x - cam.x
+        double rx = world.x - cam.x();
+        double ry = world.y - cam.y();
+        double rz = world.z - cam.z();
+
+        Vector4f vec = new Vector4f((float) rx, (float) ry, (float) rz, 1f);
+        viewMat.transform(vec);
+        projMat.transform(vec);
+
+        if (vec.w <= 0) return null;
+
+        float ndcX =  vec.x / vec.w;
+        float ndcY = -vec.y / vec.w;
+
+        float sw = mc.getWindow().getGuiScaledWidth();
+        float sh = mc.getWindow().getGuiScaledHeight();
+
+        return new float[]{
+            (ndcX + 1f) / 2f * sw,
+            (ndcY + 1f) / 2f * sh
+        };
+    }
+}
